@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.png">
+    <img src="docs/logo-light.png" alt="Sello de Molink" width="128">
+  </picture>
+</p>
+
 # Molink
 
 Conecta dos equipos Linux de la misma red local. Se emparejan una vez con un

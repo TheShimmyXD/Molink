@@ -6,6 +6,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Agregado
+- Sello de Molink al inicio del README, en versión para tema claro y oscuro.
+
 ## [0.1.0] - 2026-10-18
 
 Primera versión pública.
