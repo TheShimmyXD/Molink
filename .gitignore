@@ -1,0 +1,43 @@
+# -- Python ----------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# -- Empaquetado -----------------------------------------------
+build/
+dist/
+*.spec
+
+# -- Editores y sistema ----------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# -- Datos sensibles (NUNCA subir) -----------------------------
+resources/json/secure_credentials.json
+resources/json/local_settings.json
+.env
+*.pem
+*.key
+
+# -- Datos generados localmente --------------------------------
+resources/logs/*
+!resources/logs/.gitkeep
+resources/output/
+outputs/*
+!outputs/.gitkeep
+resources/json/*_cache.json
+*.log
+
+# -- Archivos de datos reales ----------------------------------
+# Los .sql de consultas se versionan en resources/queries/; cualquier
+# export o volcado con datos reales va en data_local/, que se ignora.
+data_local/
+*.xlsx
+*.csv

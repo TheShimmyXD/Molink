@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "molink"
+version = "0.1.0"
+description = "Conecta dos equipos Linux de la red local: comandos, archivos y chat sobre un servidor SSH propio."
+requires-python = ">=3.12"
+dependencies = [
+    "PySide6>=6.7",
+    "asyncssh>=2.24",
+    "zeroconf>=0.151",
+    "spake2>=0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.setuptools]
+# Solo se instalan las dependencias; el código se ejecuta desde la carpeta.
+packages = []
+py-modules = []
+
+[tool.python-programmer]
+# Tipo de proyecto para check_structure.py: "app" (PySide6) o "cli".
+type = "app"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Carpetas locales que no son código del proyecto.
+extend-exclude = ["resources", ".claude"]
+
+[tool.ruff.lint]
+# E/F: errores básicos, I: orden de imports, UP: sintaxis moderna,
+# B: errores frecuentes, SIM: simplificaciones, T20: prohíbe print.
+select = ["E", "F", "I", "UP", "B", "SIM", "T20"]
+# La longitud de línea la resuelve `ruff format`; no se duplica el aviso.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T20"]
+
