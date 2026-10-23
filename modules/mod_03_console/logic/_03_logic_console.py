@@ -11,6 +11,7 @@ from __future__ import annotations
 import codecs
 from enum import StrEnum
 
+from logic._00_logic_platform import OS_LINUX
 from logic._00_logic_targets import NO_TARGET, Outcome, TargetChoice, Tone, seconds_text
 from modules.mod_03_console.logic._03_logic_shell import (
     CommandHistory,
@@ -57,6 +58,8 @@ class ConsoleLogic(TargetChoice):
     - Mientras corre o pide contrasena no se cambia de equipo: el elegido se
       queda aunque desaparezca de la busqueda, porque la conexion sigue abierta.
     - La carpeta de trabajo es por equipo y la trae run_finished.
+    - El guion es de sh o de PowerShell segun el sistema del equipo (set_targets);
+      en Windows no se pide contrasena de sudo.
     """
 
     def __init__(self) -> None:
@@ -66,6 +69,8 @@ class ConsoleLogic(TargetChoice):
         self.outcome: Outcome | None = None
         self.history = CommandHistory()
         self._places: dict[str, Place] = {}
+        self._systems: dict[str, str] = {}  # sistema de cada equipo, de su anuncio
+        self._system = OS_LINUX  # el del equipo al que va el comando en curso
         self._started_at = 0.0
 
     @property
@@ -88,11 +93,19 @@ class ConsoleLogic(TargetChoice):
 
     # -- Transiciones ------------------------------------------
 
+    def set_targets(
+        self, targets: list[tuple[str, str]], systems: dict[str, str] | None = None
+    ) -> None:
+        """Equipos alcanzables (nombre, IP) y, si se sabe, el sistema de cada uno."""
+        self._systems = dict(systems or {})
+        super().set_targets(targets)
+
     def start_run(self, command: str, now: float) -> dict:
         command = command.strip()
         if self.busy:
             return {"ok": False, "message": "Ya corre un comando."}
-        if is_clear(command):
+        system = self._systems.get(self.target, OS_LINUX)
+        if is_clear(command, system):
             self.history.add(command)
             self.outcome = None
             return {"ok": True, "clear": True, "asking": False, "command": command}
@@ -103,7 +116,8 @@ class ConsoleLogic(TargetChoice):
         self.history.add(command)
         self.command = command
         self.outcome = None
-        if needs_password(command):
+        self._system = system
+        if needs_password(command, system):
             self.state = ConsoleState.ASKING
             return {"ok": True, "asking": True, "command": command}
         return self._begin(now, stdin=b"")
@@ -170,7 +184,8 @@ class ConsoleLogic(TargetChoice):
 
     def _begin(self, now: float, stdin: bytes) -> dict:
         place = self._places.get(self.target)
-        script = wrap_command(self.command, place.cwd if place else "", bool(stdin))
+        cwd = place.cwd if place else ""
+        script = wrap_command(self.command, cwd, bool(stdin), self._system)
         self.state = ConsoleState.RUNNING
         self._started_at = now
         return {

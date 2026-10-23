@@ -162,7 +162,11 @@ class ConsoleCoordinator(QObject):
         if result["kind"] == "reachable":
             self._refreshing = False
             if result["ok"]:
-                self.logic.set_targets([(peer.name, peer.address) for peer in result["value"]])
+                peers = result["value"]
+                self.logic.set_targets(
+                    [(peer.name, peer.address) for peer in peers],
+                    {peer.name: peer.os for peer in peers},
+                )
         elif result["kind"] == "run":
             if result["gen"] != self._gen:
                 return  # de un comando cancelado

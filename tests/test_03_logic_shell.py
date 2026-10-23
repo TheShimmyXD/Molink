@@ -6,12 +6,14 @@ import subprocess
 
 import pytest
 
+from logic._00_logic_platform import OS_WINDOWS
 from modules.mod_03_console.logic._03_logic_shell import (
     MARK,
     STDERR,
     CommandHistory,
     Place,
     ShellMarkFilter,
+    is_clear,
     needs_password,
     short_path,
     wrap_command,
@@ -126,3 +128,34 @@ def test_history_walks_like_a_shell():
     assert history.newer() == "hostname"
     assert history.newer() == "a medias"
     assert history.newer() == "a medias"
+
+
+def test_windows_home_is_shortened_with_backslashes():
+    home = "C:\\Users\\ana"
+    assert short_path(home, home) == "~"
+    assert short_path("C:\\Users\\ana\\Desktop", home + "\\") == "~\\Desktop"
+    assert short_path("C:\\Users\\anabel", home) == "C:\\Users\\anabel"
+
+
+def test_windows_has_no_sudo_password_and_cls_clears():
+    assert not needs_password("sudo winget upgrade", OS_WINDOWS)
+    assert is_clear("cls", OS_WINDOWS) and is_clear("clear", OS_WINDOWS)
+    assert not is_clear("cls")
+
+
+def test_powershell_script_enters_folder_and_reports_it_in_finally():
+    script = wrap_command(
+        "Get-ChildItem", "C:\\Users\\ana\\it's", with_sudo=True, system=OS_WINDOWS
+    )
+    lines = script.split("\n")
+    assert lines[0].startswith("try { Set-Location -LiteralPath 'C:\\Users\\ana\\it''s' ")
+    assert "catch { Set-Location -LiteralPath $HOME }" in lines[0]
+    command_at = lines.index("Get-ChildItem")
+    assert lines[command_at - 1] == "try {"
+    assert lines[command_at + 1] == "$__ok = $?; $__code = $LASTEXITCODE"
+    assert lines[command_at + 2] == "} finally {"
+    assert "'MOLINK:'" in script and "[char]30" in script and "sudo" not in script
+    assert lines[-1] == "if (-not $__ok) { if ($__code) { exit $__code } else { exit 1 } }"
+    assert wrap_command("pwd", "", False, OS_WINDOWS).startswith(
+        "try { Set-Location -LiteralPath $HOME "
+    )

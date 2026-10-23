@@ -123,3 +123,21 @@ def test_clear_runs_nothing_and_needs_no_target():
     logic.set_targets([PEER])
     assert logic.start_run("clear", 1.0)["clear"] and logic.state == ConsoleState.READY
     assert not logic.start_run("clear -x", 2.0).get("clear")
+
+
+def test_windows_target_gets_a_powershell_script_and_no_password():
+    logic = ConsoleLogic()
+    logic.set_targets([PEER, OTHER], {"taller": "windows"})
+    assert logic.start_run("sudo hostname", 0.0)["asking"]
+    logic.cancel(0.5)
+    payload = logic.start_run("hostname", 0.0)
+    assert payload["ok"] and payload["script"].startswith("cd\n")
+    logic.run_finished(True, 0, 1.0, place=Place("/home/ana", "/home/ana"))
+    assert logic.choose("taller")
+    payload = logic.start_run("sudo hostname", 2.0)
+    assert not payload["asking"] and payload["stdin"] == b""
+    assert payload["script"].startswith("try { Set-Location -LiteralPath $HOME ")
+    logic.run_finished(True, 0, 3.0, place=Place("C:\\Users\\ana\\Desktop", "C:\\Users\\ana"))
+    assert logic.prompt == "~\\Desktop"
+    assert logic.start_run("cls", 4.0).get("clear")
+    assert "'C:\\Users\\ana\\Desktop'" in logic.start_run("dir", 5.0)["script"]

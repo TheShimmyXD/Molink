@@ -4,6 +4,10 @@ Logica pura. Cada comando corre en un proceso nuevo alla, asi que la carpeta se
 arrastra de aqui: el guion entra a la ultima carpeta, corre el comando y, al
 salir, deja en stderr una marca con $PWD y $HOME que ShellMarkFilter quita de
 la salida. La contrasena de sudo nunca entra al guion: va por stdin.
+
+Si el otro equipo es Windows el guion es de PowerShell (el servidor ya lo
+envuelve en un .ps1 que sale con el codigo como sh): Set-Location en vez de
+cd, la marca en un finally (tambien sale con exit) y sin sudo.
 """
 
 from __future__ import annotations
@@ -11,6 +15,8 @@ from __future__ import annotations
 import re
 import shlex
 from dataclasses import dataclass
+
+from logic._00_logic_platform import OS_LINUX, OS_WINDOWS
 
 STDERR = "stderr"  # nombre del flujo como lo da el cliente SSH
 MARK = b"\x1eMOLINK:"
@@ -21,19 +27,36 @@ SUDO_WORD = re.compile(r"(^|[\s;&|()`])sudo(\s|$)")
 _TRAP = 'trap \'printf "\\036MOLINK:%s\\036%s\\036" "$PWD" "$HOME" >&2\' EXIT'
 _SUDO = "sudo() { command sudo -S -p '' \"$@\"; }"
 
+# PowerShell 5.1 no entiende `u{1e}: el separador se arma con [char]30. El
+# estado se guarda dentro del try, antes de que la marca lo cambie, y el final
+# repite la regla del servidor: codigo del programa que fallo, 1 si fallo un cmdlet.
+_PS_MARK = (
+    "} finally {\n"
+    "$__s = [string][char]30\n"
+    "[Console]::Error.Write($__s + 'MOLINK:' + (Get-Location).Path + $__s + $HOME + $__s)\n"
+    "}\n"
+    "if (-not $__ok) { if ($__code) { exit $__code } else { exit 1 } }"
+)
 
-def is_clear(command: str) -> bool:
-    """clear no tiene terminal que limpiar alla: lo hace la consola aqui."""
-    return command.strip() == "clear"
+
+def is_clear(command: str, system: str = OS_LINUX) -> bool:
+    """clear (o cls en Windows) no tiene terminal que limpiar alla: lo hace la consola aqui."""
+    words = ("clear", "cls") if system == OS_WINDOWS else ("clear",)
+    return command.strip() in words
 
 
-def needs_password(command: str) -> bool:
-    """True si el comando llama a sudo: antes de correrlo se pide la contrasena."""
-    return SUDO_WORD.search(command) is not None
+def needs_password(command: str, system: str = OS_LINUX) -> bool:
+    """True si el comando llama a sudo: antes de correrlo se pide la contrasena.
+
+    En Windows no: su sudo pide permiso en una ventana del otro equipo, no una contrasena.
+    """
+    return system != OS_WINDOWS and SUDO_WORD.search(command) is not None
 
 
-def wrap_command(command: str, cwd: str, with_sudo: bool) -> str:
+def wrap_command(command: str, cwd: str, with_sudo: bool, system: str = OS_LINUX) -> str:
     """Guion que corre command en cwd (o en la carpeta personal) y avisa donde quedo."""
+    if system == OS_WINDOWS:
+        return _wrap_powershell(command, cwd)
     enter = f"cd -- {shlex.quote(cwd)} 2>/dev/null || cd" if cwd else "cd"
     lines = [enter, _TRAP]
     if with_sudo:
@@ -42,14 +65,33 @@ def wrap_command(command: str, cwd: str, with_sudo: bool) -> str:
     return "\n".join(lines)
 
 
+def _wrap_powershell(command: str, cwd: str) -> str:
+    target = "'" + cwd.replace("'", "''") + "'" if cwd else "$HOME"
+    enter = (
+        f"try {{ Set-Location -LiteralPath {target} -ErrorAction Stop }} "
+        "catch { Set-Location -LiteralPath $HOME }"
+    )
+    return "\n".join(
+        [
+            enter,
+            "$__ok = $true; $__code = 0",
+            "try {",
+            command,
+            "$__ok = $?; $__code = $LASTEXITCODE",
+            _PS_MARK,
+        ]
+    )
+
+
 def short_path(path: str, home: str) -> str:
-    """La carpeta como la escribe un shell: la personal es ~."""
+    """La carpeta como la escribe un shell: la personal es ~ (C:\\Users\\x tambien)."""
     if not path:
         return "~"
+    sep = "\\" if "\\" in home else "/"
     if home and path == home:
         return "~"
-    if home and path.startswith(home.rstrip("/") + "/"):
-        return "~" + path[len(home.rstrip("/")) :]
+    if home and path.startswith(home.rstrip(sep) + sep):
+        return "~" + path[len(home.rstrip(sep)) :]
     return path
 
 
