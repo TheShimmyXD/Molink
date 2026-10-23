@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import base64
-
 from logic._00_logic_platform import (
     OS_LINUX,
     OS_WINDOWS,
     is_windows,
     local_os,
     peer_os,
-    powershell_args,
+    powershell_file_args,
+    powershell_script,
     taskkill_args,
 )
 
@@ -29,15 +28,21 @@ def test_peer_os_without_key_is_linux():
     assert peer_os(b"\xff") == OS_LINUX
 
 
-def test_powershell_args_encode_the_command():
-    command = 'Write-Output "año y $HOME"; dir'
-    args = powershell_args(command)
+def test_powershell_script_deletes_itself_and_ends_like_sh():
+    script = powershell_script('Write-Output "año"; cmd /c exit 3')
+    lines = script.splitlines()
+    assert lines[0].startswith("Remove-Item -LiteralPath $PSCommandPath")
+    assert "UTF8" in lines[2]
+    assert 'Write-Output "año"; cmd /c exit 3' in lines
+    assert lines[-2].startswith("if (-not $?)") and lines[-1] == "exit 0"
+
+
+def test_powershell_file_args():
+    args = powershell_file_args("C:/tmp/molink-1.ps1")
     assert args[0] == "powershell.exe"
     assert "-NonInteractive" in args and "-NoProfile" in args
-    assert args[-2] == "-EncodedCommand"
-    script = base64.b64decode(args[-1]).decode("utf-16-le")
-    assert script.endswith("\n" + command)
-    assert "UTF8" in script.splitlines()[0]
+    assert args[-2:] == ["-File", "C:/tmp/molink-1.ps1"]
+    assert args[args.index("-ExecutionPolicy") + 1] == "Bypass"
 
 
 def test_taskkill_args_kill_the_tree():

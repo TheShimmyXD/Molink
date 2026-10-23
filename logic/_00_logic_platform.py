@@ -3,12 +3,12 @@
 Logica pura. El anuncio de zeroconf lleva os=linux u os=windows; un equipo
 que no la lleva (Molink 0.1.0) es Linux. En Windows el servidor corre lo que
 llega en PowerShell con la salida en UTF-8, sin ventana y en su propio grupo
-de procesos, y lo termina con taskkill sobre todo el arbol.
+de procesos, y lo termina con taskkill sobre todo el arbol. El guion termina
+como sh: con el codigo del ultimo programa, o 1 si fallo un cmdlet.
 """
 
 from __future__ import annotations
 
-import base64
 import subprocess
 import sys
 
@@ -16,10 +16,15 @@ OS_LINUX = "linux"
 OS_WINDOWS = "windows"
 OS_KEY = "os"
 
-# Sin esto PowerShell y los programas que llama escriben en la pagina OEM (cp850).
-_PS_UTF8 = (
+# Lo primero del guion: se borra a si mismo (PowerShell ya lo leyo entero), sin
+# barras de progreso y en UTF-8 (sin esto escribe en la pagina OEM, cp850).
+_PS_HEAD = (
+    "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue\n"
+    "$ProgressPreference = 'SilentlyContinue'\n"
     "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $OutputEncoding = [Text.Encoding]::UTF8\n"
 )
+# Lo ultimo: el codigo del programa que fallo, 1 si fallo un cmdlet, 0 si no.
+_PS_TAIL = "\nif (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }\nexit 0\n"
 
 # Sin ventana de consola (la app no tiene una) y con su propio grupo de procesos.
 WINDOWS_FLAGS = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000) | getattr(
@@ -43,17 +48,22 @@ def peer_os(value: str | bytes | None) -> str:
     return OS_WINDOWS if value == OS_WINDOWS else OS_LINUX
 
 
-def powershell_args(command: str) -> list[str]:
-    """Orden que corre command en PowerShell sin perfil y sin comillas que escapar."""
-    script = _PS_UTF8 + command
-    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+def powershell_script(command: str) -> str:
+    """Guion .ps1 que corre command y sale con su codigo."""
+    return _PS_HEAD + command + _PS_TAIL
+
+
+def powershell_file_args(path: str) -> list[str]:
+    """Orden que corre el .ps1 sin perfil; Bypass vale solo para este proceso."""
     return [
         "powershell.exe",
         "-NoLogo",
         "-NoProfile",
         "-NonInteractive",
-        "-EncodedCommand",
-        encoded,
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        path,
     ]
 
 

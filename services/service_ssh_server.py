@@ -21,7 +21,6 @@ import contextlib
 import functools
 import ipaddress
 import logging
-import os
 import signal
 import sys
 from collections.abc import Callable, Iterable
@@ -47,8 +46,6 @@ DEFAULT_PORT = 47820
 # sin respuesta, en vez de quedar colgada los minutos que tarda TCP.
 KEEPALIVE_S = 5
 KEEPALIVE_MISSES = 3
-# Tiempo que se le da a un comando cancelado para salir antes de SIGKILL.
-TERM_GRACE_S = 2.0
 
 KeysProvider = Callable[[], Iterable[asyncssh.SSHKey]]
 
@@ -138,37 +135,6 @@ def exit_code(returncode: int) -> int:
     return 128 - returncode if returncode < 0 else returncode
 
 
-async def _terminate(child: asyncio.subprocess.Process) -> None:
-    """Termina el grupo de procesos del comando: SIGTERM y, si no sale, SIGKILL.
-
-    En Windows no hay grupos ni senales: taskkill termina el arbol de una vez.
-    """
-    from logic._00_logic_platform import WINDOWS_FLAGS, is_windows, taskkill_args
-
-    if is_windows():
-        with contextlib.suppress(OSError):
-            killer = await asyncio.create_subprocess_exec(
-                *taskkill_args(child.pid),
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL,
-                creationflags=WINDOWS_FLAGS,
-            )
-            await killer.wait()
-        await child.wait()
-        return
-    for signum in (signal.SIGTERM, signal.SIGKILL):
-        try:
-            os.killpg(child.pid, signum)
-        except ProcessLookupError:
-            break
-        try:
-            await asyncio.wait_for(child.wait(), TERM_GRACE_S)
-            break
-        except TimeoutError:
-            continue
-    await child.wait()
-
-
 async def _feed(reader, writer: asyncio.StreamWriter) -> None:
     """Pasa al comando lo que el otro equipo manda por stdin y la cierra en su EOF.
 
@@ -180,22 +146,6 @@ async def _feed(reader, writer: asyncio.StreamWriter) -> None:
             await writer.drain()
     with contextlib.suppress(OSError):
         writer.close()
-
-
-async def _spawn(command: str) -> asyncio.subprocess.Process:
-    """Lanza command con el shell del sistema: sh en Linux, PowerShell en Windows."""
-    from logic._00_logic_platform import WINDOWS_FLAGS, is_windows, powershell_args
-
-    pipes = {
-        "stdin": asyncio.subprocess.PIPE,
-        "stdout": asyncio.subprocess.PIPE,
-        "stderr": asyncio.subprocess.PIPE,
-    }
-    if is_windows():
-        return await asyncio.create_subprocess_exec(
-            *powershell_args(command), creationflags=WINDOWS_FLAGS, **pipes
-        )
-    return await asyncio.create_subprocess_shell(command, start_new_session=True, **pipes)
 
 
 async def _run_child(child: asyncio.subprocess.Process, process) -> int:
@@ -216,7 +166,9 @@ async def _run_process(process: asyncssh.SSHServerProcess) -> None:
         process.stderr.write(b"Molink no abre una consola interactiva.\n")
         process.exit(1)
         return
-    child = await _spawn(process.command)
+    from services.service_process import spawn, terminate
+
+    child = await spawn(process.command)
     feeding = asyncio.ensure_future(_feed(process.stdin, child.stdin))
     finished = asyncio.ensure_future(_run_child(child, process))
     closed = asyncio.ensure_future(process.wait_closed())
@@ -226,7 +178,7 @@ async def _run_process(process: asyncssh.SSHServerProcess) -> None:
         closed.cancel()
         feeding.cancel()
         if not finished.done():
-            await _terminate(child)
+            await terminate(child)
             logger.info("Comando remoto cancelado")
             await asyncio.gather(finished, return_exceptions=True)
     if finished.cancelled() or finished.exception() is not None or process.is_closing():

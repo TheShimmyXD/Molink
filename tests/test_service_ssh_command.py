@@ -211,11 +211,8 @@ def test_long_command_is_cancelled_without_orphans(instances):
     assert status == 0
 
 
-def test_windows_runs_powershell_and_kills_the_tree(monkeypatch):
-    import base64
-
-    import logic._00_logic_platform as platform_logic
-    from services import service_ssh_server
+def test_windows_runs_powershell_and_kills_the_tree(monkeypatch, tmp_path):
+    from services import service_process
 
     calls = []
 
@@ -229,17 +226,20 @@ def test_windows_runs_powershell_and_kills_the_tree(monkeypatch):
         calls.append((args, kwargs))
         return FakeChild()
 
-    monkeypatch.setattr(platform_logic, "is_windows", lambda: True)
-    monkeypatch.setattr(service_ssh_server.asyncio, "create_subprocess_exec", fake_exec)
+    real_write = service_process.write_script
+    monkeypatch.setattr(service_process, "is_windows", lambda: True)
+    monkeypatch.setattr(service_process.asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr(service_process, "write_script", lambda c: real_write(c, str(tmp_path)))
 
     async def scenario():
-        child = await service_ssh_server._spawn("hostname")
-        await service_ssh_server._terminate(child)
+        child = await service_process.spawn("hostname")
+        await service_process.terminate(child)
 
     asyncio.run(scenario())
     (spawn_args, spawn_kwargs), (kill_args, _) = calls
-    assert spawn_args[0] == "powershell.exe"
-    assert base64.b64decode(spawn_args[-1]).decode("utf-16-le").endswith("\nhostname")
-    assert spawn_kwargs["creationflags"] == platform_logic.WINDOWS_FLAGS
+    assert spawn_args[0] == "powershell.exe" and spawn_args[-2] == "-File"
+    script = Path(spawn_args[-1]).read_bytes()
+    assert script.startswith(b"\xef\xbb\xbf") and b"\r\nhostname\r\n" in script
+    assert spawn_kwargs["creationflags"] == service_process.WINDOWS_FLAGS
     assert "start_new_session" not in spawn_kwargs
     assert kill_args == ("taskkill.exe", "/T", "/F", "/PID", "4321")
