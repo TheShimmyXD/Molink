@@ -129,22 +129,38 @@ como privada: en una red pública Windows bloquea todo lo que entra. Míralo con
 Get-NetConnectionProfile
 ```
 
-(`NetworkCategory : Private`). Si cerraste el aviso o el otro equipo no te
-encuentra, abre los dos puertos solo para la red local con una regla propia,
-en PowerShell **como administrador**:
+(`NetworkCategory : Private`). Si dice `Public`, cámbiala en PowerShell
+**como administrador** (con el nombre de tu conexión, `Ethernet` o `Wi-Fi`):
+
+```powershell
+Set-NetConnectionProfile -InterfaceAlias "Ethernet" -NetworkCategory Private
+```
+
+Si cerraste el aviso o el otro equipo no te encuentra, abre solo lo que usa
+Molink y solo para la red local con dos reglas propias, también como
+administrador: los puertos del canal y del emparejamiento, y mDNS para la
+búsqueda (la regla «mDNS (UDP de entrada)» que trae Windows es solo para el
+propio Windows, no para Python):
 
 ```powershell
 New-NetFirewallRule -DisplayName "Molink" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47820,47821 -RemoteAddress LocalSubnet -Profile Private
+New-NetFirewallRule -DisplayName "Molink mDNS" -Direction Inbound -Action Allow -Protocol UDP -LocalPort 5353 -RemoteAddress LocalSubnet -Profile Private
 ```
 
-Para quitarla:
+Con ellas ya no hacen falta las reglas que crea el aviso, que dejan entrar a
+cualquier programa de Python por cualquier puerto. Si aceptaste el aviso para
+redes públicas, puedes desactivarlas (`Enable-NetFirewallRule` las vuelve a
+activar):
 
 ```powershell
-Remove-NetFirewallRule -DisplayName "Molink"
+Get-NetFirewallApplicationFilter | Where-Object { $_.Program -like "*\Python3*\python*.exe" } | Get-NetFirewallRule | Disable-NetFirewallRule
 ```
 
-La búsqueda por mDNS usa la regla «mDNS (UDP de entrada)» que Windows ya trae
-activa para redes privadas.
+Para quitar las reglas de Molink:
+
+```powershell
+Remove-NetFirewallRule -DisplayName "Molink", "Molink mDNS"
+```
 
 ## Desinstalar
 
@@ -164,8 +180,8 @@ Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Molink.lnk"
 Remove-Item -Recurse "$env:LOCALAPPDATA\Molink"   # identidad, emparejados e icono
 ```
 
-y borra la carpeta del proyecto. Si creaste la regla del cortafuegos, quítala
-como arriba.
+y borra la carpeta del proyecto. Si creaste las reglas del cortafuegos,
+quítalas como arriba.
 
 ## Desarrollo
 

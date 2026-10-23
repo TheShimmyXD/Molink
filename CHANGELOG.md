@@ -6,6 +6,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Corregido
+- README, cortafuegos de Windows: falta una regla para mDNS (la de Windows no vale para
+  Python); cómo pasar la red a privada y desactivar las reglas amplias del aviso.
+
 ## [0.2.0] - 2026-10-23
 
 ### Agregado
