@@ -166,7 +166,7 @@ async def _run_process(process: asyncssh.SSHServerProcess) -> None:
         process.stderr.write(b"Molink no abre una consola interactiva.\n")
         process.exit(1)
         return
-    from services.service_process import spawn, terminate
+    from services.service_process import release, spawn, terminate
 
     child = await spawn(process.command)
     feeding = asyncio.ensure_future(_feed(process.stdin, child.stdin))
@@ -181,6 +181,7 @@ async def _run_process(process: asyncssh.SSHServerProcess) -> None:
             await terminate(child)
             logger.info("Comando remoto cancelado")
             await asyncio.gather(finished, return_exceptions=True)
+        release(child)
     if finished.cancelled() or finished.exception() is not None or process.is_closing():
         return
     returncode = finished.result()

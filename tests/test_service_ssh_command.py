@@ -234,8 +234,9 @@ def test_windows_runs_powershell_and_kills_the_tree(monkeypatch, tmp_path):
     async def scenario():
         child = await service_process.spawn("hostname")
         await service_process.terminate(child)
+        return child
 
-    asyncio.run(scenario())
+    child = asyncio.run(scenario())
     (spawn_args, spawn_kwargs), (kill_args, _) = calls
     assert spawn_args[0] == "powershell.exe" and spawn_args[-2] == "-File"
     script = Path(spawn_args[-1]).read_bytes()
@@ -243,3 +244,7 @@ def test_windows_runs_powershell_and_kills_the_tree(monkeypatch, tmp_path):
     assert spawn_kwargs["creationflags"] == service_process.WINDOWS_FLAGS
     assert "start_new_session" not in spawn_kwargs
     assert kill_args == ("taskkill.exe", "/T", "/F", "/PID", "4321")
+    # El falso PowerShell no corre el autoborrado, como un .ps1 con error de sintaxis.
+    service_process.release(child)
+    assert not Path(spawn_args[-1]).exists()
+    service_process.release(child)

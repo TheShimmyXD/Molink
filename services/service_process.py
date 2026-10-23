@@ -3,7 +3,8 @@
 En Linux corren con sh en su propio grupo de procesos; al cancelar se manda
 SIGTERM al grupo y, si no sale, SIGKILL. En Windows corren en PowerShell
 desde un .ps1 temporal (con -EncodedCommand los errores llegarian en XML),
-que se borra solo al arrancar; al cancelar, taskkill termina todo el arbol.
+que se borra solo al arrancar (con un error de sintaxis no arranca: release
+lo borra al terminar); al cancelar, taskkill termina todo el arbol.
 """
 
 from __future__ import annotations
@@ -26,6 +27,9 @@ from logic._00_logic_platform import (
 # Tiempo que se le da a un comando cancelado para salir antes de SIGKILL.
 TERM_GRACE_S = 2.0
 
+# pid -> .ps1 de cada comando de Windows, hasta que release lo suelte.
+_scripts: dict[int, Path] = {}
+
 _PIPES = {
     "stdin": asyncio.subprocess.PIPE,
     "stdout": asyncio.subprocess.PIPE,
@@ -47,12 +51,22 @@ async def spawn(command: str) -> asyncio.subprocess.Process:
         return await asyncio.create_subprocess_shell(command, start_new_session=True, **_PIPES)
     script = write_script(command)
     try:
-        return await asyncio.create_subprocess_exec(
+        child = await asyncio.create_subprocess_exec(
             *powershell_file_args(str(script)), creationflags=WINDOWS_FLAGS, **_PIPES
         )
     except OSError:
         script.unlink(missing_ok=True)
         raise
+    _scripts[child.pid] = script
+    return child
+
+
+def release(child: asyncio.subprocess.Process) -> None:
+    """Borra el .ps1 del comando si quedo (el guion no llego a correr); ya salio."""
+    script = _scripts.pop(child.pid, None)
+    if script is not None:
+        with contextlib.suppress(OSError):
+            script.unlink(missing_ok=True)
 
 
 async def terminate(child: asyncio.subprocess.Process) -> None:
