@@ -6,11 +6,25 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-10-23
+
 ### Agregado
+- Windows 11: Molink conecta un equipo Linux con uno Windows 11, con chat, archivos y
+  consola en los dos sentidos. Probado entre una laptop Linux y un PC con Windows 11.
+- Datos en `%LOCALAPPDATA%\Molink` y descargas en `~\Downloads\Molink`; interfaces de red
+  con ifaddr; el anuncio dice el sistema de cada equipo (`os`). Un equipo con 0.1.0 se
+  toma como Linux.
+- Hacia Windows, la consola corre en PowerShell: carpeta de trabajo, historial, salida en
+  UTF-8 y el código de salida como en `sh`; Cancelar termina todo el árbol de procesos.
+  `sudo` no aplica en Windows y la consola lo explica.
+- `install.ps1`: entorno virtual, dependencias y acceso directo en el menú Inicio, sin
+  administrador. README con la sección de Windows y su cortafuegos.
 - Sello de Molink al inicio del README, en versión para tema claro y oscuro.
-- Primer paso hacia Windows 11: datos en `%LOCALAPPDATA%\Molink`, interfaces de red con
-  ifaddr, el servidor corre los comandos en PowerShell y termina su árbol de procesos, y el
-  anuncio dice el sistema de cada equipo (`os`). Aún sin probar en Windows.
+
+### Corregido
+- En Windows llegaban mal los archivos: el servidor SFTP no convertía las rutas `/C:/...`.
+- El `.ps1` temporal de un comando se borra al terminar, también si tenía un error.
+- Los iconos de la interfaz no se veían en Windows: la fuente Phosphor va en TTF.
 
 ## [0.1.0] - 2026-10-18
 
