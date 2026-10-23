@@ -31,6 +31,7 @@ def test_empty_when_missing(tmp_path):
     assert load_paired(tmp_path / "data") == []
 
 
+@pytest.mark.linux_only
 def test_added_peer_is_saved_private(tmp_path):
     data = tmp_path / "data"
     peer = peer_of(tmp_path, "sobremesa")

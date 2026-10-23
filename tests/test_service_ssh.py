@@ -109,6 +109,7 @@ def test_paired_key_runs_hostname(keys):
     assert _port_is_free(port)
 
 
+@pytest.mark.linux_only
 def test_exit_status_and_stderr_are_returned(keys):
     async def scenario():
         async with _server(keys) as handle:
@@ -133,10 +134,10 @@ def test_molink_server_reads_paired_list_live(tmp_path, keys):
     async def scenario():
         handle = await start_molink_server(identity, LOCALHOST, 0, LOOPBACK_NET)
         try:
-            first = await run_command(LOCALHOST, handle.port, keys["paired"], host_pub, "true")
+            first = await run_command(LOCALHOST, handle.port, keys["paired"], host_pub, "exit 0")
             remove_paired(identity.data_dir, "sobremesa")
             with pytest.raises(asyncssh.PermissionDenied):
-                await run_command(LOCALHOST, handle.port, keys["paired"], host_pub, "true")
+                await run_command(LOCALHOST, handle.port, keys["paired"], host_pub, "exit 0")
             return handle.port, first
         finally:
             await handle.close()
@@ -272,7 +273,7 @@ def test_agent_forwarding_is_refused(keys, tmp_path, seen_by_server):
                 keys, handle.port, agent_forwarding=True, agent_path=str(tmp_path / "agent.sock")
             ) as conn,
         ):
-            return await conn.run("true", check=False)
+            return await conn.run("exit 0", check=False)
 
     assert asyncio.run(scenario()).exit_status == 0
     assert seen_by_server == [(None, None)]
@@ -285,7 +286,7 @@ def test_x11_forwarding_is_refused(keys, tmp_path, seen_by_server):
     async def scenario():
         async with _server(keys) as handle, _connect(keys, handle.port) as conn:
             await conn.run(
-                "true",
+                "exit 0",
                 x11_forwarding=True,
                 x11_display="localhost:99",
                 x11_auth_path=str(xauth),
@@ -308,7 +309,7 @@ def test_interactive_shell_is_refused(keys):
 def test_pty_request_is_refused(keys):
     async def scenario():
         async with _server(keys) as handle, _connect(keys, handle.port) as conn:
-            await conn.run("true", term_type="xterm")
+            await conn.run("exit 0", term_type="xterm")
 
     with pytest.raises(asyncssh.ChannelOpenError):
         asyncio.run(scenario())

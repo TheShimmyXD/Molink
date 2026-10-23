@@ -157,6 +157,7 @@ async def _paired_pair(a, b, seen: list[Peer]):
     return shower, joiner
 
 
+@pytest.mark.linux_only
 def test_run_streams_both_outputs_and_cancel_ends_it(tmp_path):
     a = _identity(tmp_path, "equipo-a")
     b = _identity(tmp_path, "equipo-b")

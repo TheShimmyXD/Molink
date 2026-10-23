@@ -60,6 +60,7 @@ def test_short_path():
 
 
 @pytest.mark.parametrize("chunk", [1, 3, 4096])
+@pytest.mark.linux_only
 def test_wrapped_command_keeps_status_and_reports_folder(tmp_path, chunk):
     folder = tmp_path / "con espacio 'y comilla'"
     folder.mkdir()
@@ -72,6 +73,7 @@ def test_wrapped_command_keeps_status_and_reports_folder(tmp_path, chunk):
     assert place is not None and place.cwd == str(folder / "sub") and place.home
 
 
+@pytest.mark.linux_only
 def test_empty_folder_starts_at_home_and_missing_folder_falls_back(tmp_path):
     first = _run(wrap_command("pwd", "", with_sudo=False))
     _, place = _filtered(first.stderr, 4096)
@@ -82,12 +84,14 @@ def test_empty_folder_starts_at_home_and_missing_folder_falls_back(tmp_path):
     assert gone.returncode == 0 and place.cwd == place.home
 
 
+@pytest.mark.linux_only
 def test_syntax_error_still_reports_folder(tmp_path):
     done = _run(wrap_command("echo (", str(tmp_path), with_sudo=False))
     shown, place = _filtered(done.stderr, 4096)
     assert done.returncode != 0 and b"MOLINK" not in shown and place.cwd == str(tmp_path)
 
 
+@pytest.mark.linux_only
 def test_sudo_reads_password_from_stdin_without_prompt(tmp_path, monkeypatch):
     fake = tmp_path / "bin"
     fake.mkdir()

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import os
 import re
 import socket
 
@@ -110,7 +111,7 @@ def test_first_contact_pairs_and_runs_hostname_both_ways(a, b):
         return joined, to_a, to_b
 
     joined, to_a, to_b = asyncio.run(scenario())
-    expected = (socket.gethostname() + "\n").encode()
+    expected = (socket.gethostname() + os.linesep).encode()
     assert joined.name == "equipo-a"
     assert to_a == (0, expected, b"")
     assert to_b == (3, expected, b"")

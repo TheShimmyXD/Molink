@@ -120,6 +120,7 @@ def test_hostname_both_ways(instances):
     assert all(_port_is_free(port) for port in ports.values())
 
 
+@pytest.mark.linux_only
 def test_failing_command_returns_status_and_stderr(instances):
     async def scenario():
         chunks, on_output = _collector()
@@ -133,6 +134,7 @@ def test_failing_command_returns_status_and_stderr(instances):
     assert _joined(chunks, STDOUT) == b""
 
 
+@pytest.mark.linux_only
 def test_command_not_found_is_127(instances):
     async def scenario():
         async with _Running(instances) as running, running.connect("a", "b") as conn:
@@ -141,6 +143,7 @@ def test_command_not_found_is_127(instances):
     assert asyncio.run(scenario()) == 127
 
 
+@pytest.mark.linux_only
 def test_stdin_reaches_the_command_and_then_ends(instances):
     """Lo que se manda por stdin llega al comando (sudo -S); sin nada, fin de entrada."""
 
@@ -158,6 +161,7 @@ def test_stdin_reaches_the_command_and_then_ends(instances):
     assert empty == (0, b"fin\n")
 
 
+@pytest.mark.linux_only
 def test_output_arrives_live(instances):
     """La primera linea llega antes de que el comando termine."""
 
@@ -175,6 +179,7 @@ def test_output_arrives_live(instances):
     assert finished_at - first_at >= 0.4
 
 
+@pytest.mark.linux_only
 def test_long_command_is_cancelled_without_orphans(instances):
     """Se cancela un comando que dejo un proceso de fondo: mueren los dos."""
 

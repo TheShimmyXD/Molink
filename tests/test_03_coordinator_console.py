@@ -95,6 +95,7 @@ def _close(a, b, pair_port):
         assert sock.connect_ex((LOCALHOST, pair_port)) != 0
 
 
+@pytest.mark.linux_only
 def test_run_live_output_and_cancel_between_two_instances(qt_application, loop, tmp_path):
     a, b, pair_port = _paired(qt_application, loop, tmp_path)
     b.console.run("printf 'hola\\n'; printf 'ñu' >&2; exit 4")
@@ -113,6 +114,7 @@ def test_run_live_output_and_cancel_between_two_instances(qt_application, loop, 
     _close(a, b, pair_port)
 
 
+@pytest.mark.linux_only
 def test_folder_follows_cd_and_sudo_gets_the_password(qt_application, loop, tmp_path, monkeypatch):
     """La carpeta sigue al cd entre comandos y sudo lee la contrasena de stdin."""
     fake = tmp_path / "bin"

@@ -37,6 +37,7 @@ def test_concrete_ip_is_accepted():
     assert check_listen_host(LOCALHOST) == LOCALHOST
 
 
+@pytest.mark.linux_only
 def test_host_key_is_created_private_and_reused(tmp_path):
     path = tmp_path / "data" / "host_key"
     first = load_or_create_key(path)
@@ -68,6 +69,7 @@ def _ssh_args(tmp_path, port, known_hosts):
 
 
 @pytest.mark.skipif(shutil.which("ssh") is None, reason="falta el cliente ssh de OpenSSH")
+@pytest.mark.linux_only
 def test_openssh_client_runs_hostname(tmp_path):
     subprocess.run(
         ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(tmp_path / "client")], check=True
@@ -102,6 +104,7 @@ def test_openssh_client_runs_hostname(tmp_path):
         assert sock.connect_ex((LOCALHOST, port)) != 0
 
 
+@pytest.mark.linux_only
 def test_keepalive_drops_a_frozen_server(tmp_path, monkeypatch):
     """Servidor congelado (SIGSTOP), como si la red se fuera sin cerrar el TCP:
     el cliente suelta la conexion por keepalive en vez de quedar colgado."""

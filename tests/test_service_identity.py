@@ -36,6 +36,8 @@ def home(tmp_path, monkeypatch):
     fake = tmp_path / "home"
     fake.mkdir()
     monkeypatch.setenv("HOME", str(fake))
+    monkeypatch.setenv("USERPROFILE", str(fake))
+    monkeypatch.setenv("LOCALAPPDATA", str(fake / "AppData" / "Local"))
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     return fake
 
@@ -44,6 +46,7 @@ def _mode(path):
     return path.stat().st_mode & 0o777
 
 
+@pytest.mark.linux_only
 def test_identity_is_created_with_private_permissions(home):
     identity = load_or_create_identity()
     data = home / ".local" / "share" / "molink"
@@ -92,6 +95,7 @@ def test_ssh_dir_is_rejected_before_writing(home):
     assert not (home / ".ssh").exists()
 
 
+@pytest.mark.linux_only
 def test_loose_permissions_are_tightened(home):
     data = home / "data"
     load_or_create_identity(data)
@@ -104,11 +108,13 @@ def test_loose_permissions_are_tightened(home):
     assert _mode(data / IDENTITY_JSON_NAME) == 0o600
 
 
+@pytest.mark.linux_only
 def test_xdg_data_home_is_respected(home, monkeypatch, tmp_path):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
     assert default_data_dir() == tmp_path / "xdg" / "molink"
 
 
+@pytest.mark.linux_only
 def test_relative_xdg_data_home_is_ignored(home, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", "relativa")
     assert default_data_dir() == home / ".local" / "share" / "molink"
@@ -157,5 +163,6 @@ def test_windows_data_dir_and_no_chmod(monkeypatch, tmp_path):
     assert default_data_dir() == tmp_path / "local" / "Molink"
     data = tmp_path / "datos"
     data.mkdir(mode=0o755)
+    before = _mode(data)
     ensure_private_dir(data)
-    assert _mode(data) == 0o755
+    assert _mode(data) == before

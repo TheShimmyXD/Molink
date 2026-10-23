@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from logic._00_logic_launcher import desktop_entry, launcher_paths, quote_exec_arg
 
 
@@ -23,6 +25,7 @@ def test_arg_with_space_and_dollar_is_quoted():
     assert quote_exec_arg("/mis cosas/$x.py") == '"/mis cosas/\\$x.py"'
 
 
+@pytest.mark.linux_only
 def test_entry_fields():
     entry = desktop_entry(Path("/p/.venv/bin/python"), Path("/p/main.py"), Path("/i/Molink.png"))
     assert entry.startswith("[Desktop Entry]\n")
@@ -35,6 +38,7 @@ def test_entry_fields():
     assert fields["StartupWMClass"] == "Molink"
 
 
+@pytest.mark.linux_only
 def test_entry_doubles_backslash_inside_quotes():
     entry = desktop_entry(Path("/a b/python"), Path("/p/main.py"), Path("/i.png"))
     assert _fields(entry)["Exec"] == '"/a b/python" /p/main.py'

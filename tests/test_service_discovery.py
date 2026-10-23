@@ -52,6 +52,7 @@ def _unique_name(prefix):
     return f"{prefix}-{uuid.uuid4().hex[:8]}"
 
 
+@pytest.mark.linux_only
 def test_two_processes_find_each_other_and_close_cleanly():
     name = _unique_name("ensayo")
     announcer = subprocess.Popen(

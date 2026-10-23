@@ -181,6 +181,7 @@ def test_server_without_inbox_has_no_sftp(tmp_path, keys):
     asyncio.run(scenario())
 
 
+@pytest.mark.linux_only
 def test_default_inbox_follows_user_dirs(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
     dirs = tmp_path / "user-dirs.dirs"

@@ -105,6 +105,7 @@ def test_too_long_message_is_refused_before_sending(tmp_path, keys):
         b'{"id": 1, "text": "hola"}\n',  # id que no es texto
         b'["id", "text"]\n',
     ],
+    ids=["larga", "no-json", "sin-text", "id-numerico", "lista"],
 )
 def test_chat_closes_on_anything_that_is_not_a_message(tmp_path, keys, raw):
     received = []
