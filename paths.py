@@ -28,5 +28,5 @@ APP_SETTINGS_JSON = JSON_DIR / "app_settings.json"
 
 FONTS_DIR = RESOURCES_DIR / "fonts"
 ICONS_DIR = RESOURCES_DIR / "icons"
-ICON_FONT = ICONS_DIR / "phosphor-regular.woff2"
+ICON_FONT = ICONS_DIR / "phosphor-regular.ttf"
 ICON_MAP = ICONS_DIR / "phosphor-regular.json"
