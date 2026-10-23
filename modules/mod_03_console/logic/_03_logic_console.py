@@ -11,18 +11,23 @@ from __future__ import annotations
 import codecs
 from enum import StrEnum
 
-from logic._00_logic_platform import OS_LINUX
+from logic._00_logic_platform import OS_LINUX, OS_WINDOWS
 from logic._00_logic_targets import NO_TARGET, Outcome, TargetChoice, Tone, seconds_text
 from modules.mod_03_console.logic._03_logic_shell import (
     CommandHistory,
     Place,
     is_clear,
     needs_password,
+    prompt_text,
     short_path,
+    uses_sudo,
     wrap_command,
 )
 
 ENCODING = "utf-8"
+SUDO_WINDOWS_HINT = (
+    "Molink corre los comandos con tu usuario de ese equipo; lo que pida administrador hazlo allá."
+)
 
 
 class ConsoleState(StrEnum):
@@ -44,6 +49,7 @@ class ConsoleLogic(TargetChoice):
         -> start_run(comando)          -> RUNNING
         -> start_run(comando con sudo) -> ASKING
         -> start_run("clear")          -> READY (la salida se limpia aqui)
+        -> start_run(sudo en Windows)  -> READY (no se manda; outcome lo explica)
 
     ASKING
         -> give_password(contrasena)   -> RUNNING
@@ -91,6 +97,11 @@ class ConsoleLogic(TargetChoice):
         place = self._places.get(self.target)
         return short_path(place.cwd, place.home) if place else "~"
 
+    @property
+    def prompt_text(self) -> str:
+        """El prompt con la marca de su shell: '~ $' o 'PS ~>'."""
+        return prompt_text(self.prompt, self._systems.get(self.target, OS_LINUX))
+
     # -- Transiciones ------------------------------------------
 
     def set_targets(
@@ -114,6 +125,11 @@ class ConsoleLogic(TargetChoice):
         if not command:
             return {"ok": False, "message": "Escribe un comando."}
         self.history.add(command)
+        if system == OS_WINDOWS and uses_sudo(command):
+            self.outcome = Outcome(
+                "No se corrió: sudo no aplica en Windows.", Tone.WARNING, SUDO_WINDOWS_HINT
+            )
+            return {"ok": False, "message": self.outcome.text}
         self.command = command
         self.outcome = None
         self._system = system
@@ -176,6 +192,7 @@ class ConsoleLogic(TargetChoice):
             "running": self.is_running,
             "asking": self.is_asking,
             "prompt": self.prompt,
+            "prompt_text": self.prompt_text,
             "status": NO_TARGET if self.state == ConsoleState.NO_TARGET else None,
             "outcome": self.outcome,
         }

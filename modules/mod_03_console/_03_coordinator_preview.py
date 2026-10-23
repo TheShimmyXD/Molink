@@ -9,12 +9,19 @@ from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
 
+from logic._00_logic_platform import OS_WINDOWS
 from modules.mod_03_console.logic._03_logic_console import ConsoleLogic
 from modules.mod_03_console.logic._03_logic_shell import Place
 
 PEER = ("sobremesa", "192.0.2.20")
 OTHER = ("taller", "192.0.2.30")
 HOME = "/home/ana"
+WIN_HOME = "C:\\Users\\ana"
+WINDOWS = (
+    "PS ~> cd Desktop\nPS ~\\Desktop> dir\n\n    Directorio: C:\\Users\\ana\\Desktop\n\n"
+    "Mode          LastWriteTime   Length Name\n----          -------------   ------ ----\n"
+    "-a----  23/10/2026  18:02    10240 notas.txt\nPS ~\\Desktop> sudo winget upgrade\n"
+)
 HISTORY = "~ $ hostname\nsobremesa\n~ $ ls ~/Descargas\nnotas.txt  fotos  molink-0.1.tar.gz\n"
 FOLDER = "~ $ cd Descargas\n~/Descargas $ ls\nnotas.txt  fotos  molink-0.1.tar.gz\n"
 RUNNING = "~ $ ping -c 20 192.0.2.1\n" + "".join(
@@ -73,6 +80,15 @@ def _asking(logic: ConsoleLogic) -> str:
     return FOLDER + "~/Descargas $ sudo apt update\n"
 
 
+def _windows(logic: ConsoleLogic) -> str:
+    logic.set_targets([OTHER, PEER], {OTHER[0]: OS_WINDOWS})
+    for command in ("cd Desktop", "dir"):
+        logic.start_run(command, 0.0)
+        logic.run_finished(True, 0, 0.3, place=Place(WIN_HOME + "\\Desktop", WIN_HOME))
+    logic.start_run("sudo winget upgrade", 0.0)
+    return WINDOWS
+
+
 SAMPLES = {
     "no_target": lambda logic: "",
     "ready": _ready,
@@ -82,6 +98,7 @@ SAMPLES = {
     "failed": _failed,
     "folder": _folder,
     "asking": _asking,
+    "windows": _windows,
 }
 
 

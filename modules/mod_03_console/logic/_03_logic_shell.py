@@ -45,12 +45,17 @@ def is_clear(command: str, system: str = OS_LINUX) -> bool:
     return command.strip() in words
 
 
+def uses_sudo(command: str) -> bool:
+    return SUDO_WORD.search(command) is not None
+
+
 def needs_password(command: str, system: str = OS_LINUX) -> bool:
     """True si el comando llama a sudo: antes de correrlo se pide la contrasena.
 
-    En Windows no: su sudo pide permiso en una ventana del otro equipo, no una contrasena.
+    En Windows no: su sudo pide permiso en una ventana del otro equipo, no una
+    contrasena, y la consola no lo manda (ConsoleLogic lo explica).
     """
-    return system != OS_WINDOWS and SUDO_WORD.search(command) is not None
+    return system != OS_WINDOWS and uses_sudo(command)
 
 
 def wrap_command(command: str, cwd: str, with_sudo: bool, system: str = OS_LINUX) -> str:
@@ -93,6 +98,11 @@ def short_path(path: str, home: str) -> str:
     if home and path.startswith(home.rstrip(sep) + sep):
         return "~" + path[len(home.rstrip(sep)) :]
     return path
+
+
+def prompt_text(path: str, system: str = OS_LINUX) -> str:
+    """Lo que va antes del comando, como lo escribe cada shell."""
+    return f"PS {path}>" if system == OS_WINDOWS else f"{path} $"
 
 
 @dataclass(frozen=True)

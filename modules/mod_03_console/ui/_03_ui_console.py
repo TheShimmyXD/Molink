@@ -205,7 +205,7 @@ class ConsoleWidget(QWidget):
 
     def _render_line(self, view: dict, was_asking: bool) -> None:
         metrics = self.prompt.fontMetrics()
-        text = metrics.elidedText(f"{view['prompt']} $", Qt.TextElideMode.ElideLeft, PROMPT_WIDTH)
+        text = metrics.elidedText(view["prompt_text"], Qt.TextElideMode.ElideLeft, PROMPT_WIDTH)
         self.prompt.setText(text)
         self.prompt.setVisible(not self._asking)
         self.command.setVisible(not self._asking)

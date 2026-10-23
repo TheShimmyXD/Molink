@@ -134,7 +134,11 @@ def test_windows_target_gets_a_powershell_script_and_no_password():
     assert payload["ok"] and payload["script"].startswith("cd\n")
     logic.run_finished(True, 0, 1.0, place=Place("/home/ana", "/home/ana"))
     assert logic.choose("taller")
-    payload = logic.start_run("sudo hostname", 2.0)
+    refused = logic.start_run("sudo hostname", 2.0)
+    assert not refused["ok"] and logic.state == ConsoleState.READY
+    assert logic.view()["outcome"].text == "No se corrió: sudo no aplica en Windows."
+    assert logic.history.items[-1] == "sudo hostname"
+    payload = logic.start_run("hostname", 2.0)
     assert not payload["asking"] and payload["stdin"] == b""
     assert payload["script"].startswith("try { Set-Location -LiteralPath $HOME ")
     logic.run_finished(True, 0, 3.0, place=Place("C:\\Users\\ana\\Desktop", "C:\\Users\\ana"))

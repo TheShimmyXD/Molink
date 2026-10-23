@@ -99,7 +99,7 @@ class ConsoleCoordinator(QObject):
         self._emit_view()
 
     def run(self, command: str) -> None:
-        prompt = self.logic.prompt
+        prompt = self.logic.prompt_text
         payload = self.logic.start_run(command, self._clock())
         if not payload["ok"]:
             self._emit_view()
@@ -107,7 +107,7 @@ class ConsoleCoordinator(QObject):
         if payload.get("clear"):
             self.clear()
             return
-        self._emit_output(("\n" if self._line_open else "") + f"{prompt} $ {payload['command']}\n")
+        self._emit_output(("\n" if self._line_open else "") + f"{prompt} {payload['command']}\n")
         if payload["asking"]:
             self._emit_view()  # la pantalla pide la contrasena
             return
