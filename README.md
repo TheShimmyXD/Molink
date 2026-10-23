@@ -65,6 +65,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 `-ExecutionPolicy Bypass` vale solo para esa orden: Windows no deja correr
 guiones descargados por defecto y así no hace falta cambiar su política.
+Si tu `python` es otro más viejo (por ejemplo, el de Anaconda), el instalador
+se detiene; indícale el de python.org antes de correrlo:
+
+```powershell
+$env:PYTHON = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+```
+
 `install.ps1` crea `.venv\` dentro de la carpeta, instala las dependencias y
 deja Molink en el menú Inicio. Para abrirlo sin el menú:
 
