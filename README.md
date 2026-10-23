@@ -7,11 +7,13 @@
 
 # Molink
 
-Conecta dos equipos Linux de la misma red local. Se emparejan una vez con un
-código de 6 dígitos y, desde cualquiera de los dos:
+Conecta dos equipos de la misma red local (Linux con Linux, o Linux con
+Windows 11). Se emparejan una vez con un código de 6 dígitos y, desde
+cualquiera de los dos:
 
 - **Consola:** corres comandos en el otro equipo y ves la salida en vivo
   (`cd`, historial, `Ctrl+C`, `clear`; `sudo` pide la contraseña en la ventana).
+  Hacia Windows los comandos corren en PowerShell.
 - **Chat:** mensajes y archivos en la misma conversación, con barra de avance.
   Lo que llega queda en `~/Descargas/Molink` (o `~/Downloads/Molink`).
 
@@ -24,11 +26,12 @@ está abierta: no hace falta instalar ni configurar `openssh-server`.
 - No toca `~/.ssh` ni el `sshd` del sistema.
 - Solo acepta equipos emparejados (llave, nunca contraseña) y solo de la red local.
 - Al cerrar la ventana el servidor se apaga y el puerto queda libre.
-- Todo lo suyo vive en `~/.local/share/molink/` (carpeta 700, llaves 600).
+- Todo lo suyo vive en `~/.local/share/molink/` (carpeta 700, llaves 600); en
+  Windows, en `%LOCALAPPDATA%\Molink`. Tampoco pide administrador.
 
 ## Requisitos
 
-- Linux con escritorio (probado en Linux Mint y Ubuntu).
+- Linux con escritorio (probado en Linux Mint y Ubuntu) o Windows 11.
 - Python 3.12 o superior con `venv` (en Debian/Ubuntu/Mint: `python3-venv`).
 - Los dos equipos en la misma red local.
 
@@ -47,6 +50,26 @@ Para abrirlo sin el menú:
 
 ```bash
 .venv/bin/python main.py
+```
+
+### En Windows 11
+
+En PowerShell (sin administrador), con [Git](https://git-scm.com) y Python 3.12
+o superior de [python.org](https://www.python.org):
+
+```powershell
+git clone https://github.com/TheShimmyXD/Molink.git
+cd Molink
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+`-ExecutionPolicy Bypass` vale solo para esa orden: Windows no deja correr
+guiones descargados por defecto y así no hace falta cambiar su política.
+`install.ps1` crea `.venv\` dentro de la carpeta, instala las dependencias y
+deja Molink en el menú Inicio. Para abrirlo sin el menú:
+
+```powershell
+.venv\Scripts\pythonw.exe main.py
 ```
 
 ## Primer uso
@@ -89,6 +112,33 @@ sudo ufw delete allow from 192.168.1.0/24 to any port 47820:47821 proto tcp
 La búsqueda del otro equipo usa mDNS (`5353/udp`); con la configuración por
 defecto de ufw no necesita regla.
 
+## Cortafuegos de Windows
+
+La primera vez que Molink abre el puerto, Windows pregunta si deja entrar a
+Python. Marca solo **Redes privadas** y acepta. La red de casa tiene que estar
+como privada: en una red pública Windows bloquea todo lo que entra. Míralo con:
+
+```powershell
+Get-NetConnectionProfile
+```
+
+(`NetworkCategory : Private`). Si cerraste el aviso o el otro equipo no te
+encuentra, abre los dos puertos solo para la red local con una regla propia,
+en PowerShell **como administrador**:
+
+```powershell
+New-NetFirewallRule -DisplayName "Molink" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 47820,47821 -RemoteAddress LocalSubnet -Profile Private
+```
+
+Para quitarla:
+
+```powershell
+Remove-NetFirewallRule -DisplayName "Molink"
+```
+
+La búsqueda por mDNS usa la regla «mDNS (UDP de entrada)» que Windows ya trae
+activa para redes privadas.
+
 ## Desinstalar
 
 ```bash
@@ -99,6 +149,16 @@ rm -r ~/.local/share/molink     # olvida la identidad y los emparejados
 
 y borra la carpeta del proyecto. Si abriste el puerto en ufw, ciérralo como
 arriba.
+
+En Windows, en PowerShell:
+
+```powershell
+Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Molink.lnk"
+Remove-Item -Recurse "$env:LOCALAPPDATA\Molink"   # identidad, emparejados e icono
+```
+
+y borra la carpeta del proyecto. Si creaste la regla del cortafuegos, quítala
+como arriba.
 
 ## Desarrollo
 

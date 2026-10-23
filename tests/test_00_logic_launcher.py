@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 import pytest
 
-from logic._00_logic_launcher import desktop_entry, launcher_paths, quote_exec_arg
+from logic._00_logic_launcher import (
+    desktop_entry,
+    launcher_paths,
+    quote_exec_arg,
+    quote_powershell,
+    shortcut_script,
+    windows_launcher_paths,
+)
 
 
 def _fields(entry: str) -> dict[str, str]:
@@ -51,3 +58,36 @@ def test_launcher_id_matches_desktop_file_name():
     from ui._00_ui_main import APP_NAME
 
     assert launcher_paths(Path("/d")).shortcut_file.stem == APP_NAME
+
+
+def test_windows_paths_in_start_menu_and_local_appdata():
+    paths = windows_launcher_paths(
+        PureWindowsPath(r"C:\Users\ana\AppData\Roaming"),
+        PureWindowsPath(r"C:\Users\ana\AppData\Local"),
+    )
+    assert str(paths.shortcut_file) == (
+        r"C:\Users\ana\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Molink.lnk"
+    )
+    assert str(paths.icon_file) == r"C:\Users\ana\AppData\Local\Molink\Molink.ico"
+
+
+def test_powershell_quote_doubles_single_quote():
+    assert quote_powershell("C:\\O'Brien\\año $x") == "'C:\\O''Brien\\año $x'"
+
+
+def test_shortcut_script_fields():
+    root = PureWindowsPath(r"C:\Users\O'Brien\Molink")
+    script = shortcut_script(
+        PureWindowsPath(r"C:\S\Molink.lnk"),
+        root / ".venv" / "Scripts" / "pythonw.exe",
+        root / "main.py",
+        PureWindowsPath(r"C:\L\Molink\Molink.ico"),
+    )
+    lines = script.splitlines()
+    assert lines[0] == "$ErrorActionPreference = 'Stop'"
+    assert "$link = $shell.CreateShortcut('C:\\S\\Molink.lnk')" in lines
+    assert "$link.TargetPath = 'C:\\Users\\O''Brien\\Molink\\.venv\\Scripts\\pythonw.exe'" in lines
+    assert "$link.Arguments = '\"C:\\Users\\O''Brien\\Molink\\main.py\"'" in lines
+    assert "$link.WorkingDirectory = 'C:\\Users\\O''Brien\\Molink'" in lines
+    assert "$link.IconLocation = 'C:\\L\\Molink\\Molink.ico,0'" in lines
+    assert lines[-1] == "$link.Save()"

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def install_launcher() -> None:
-    """Instala el acceso de Molink en el menu del escritorio."""
+    """Instala el acceso de Molink en el menu del escritorio o en el menu Inicio."""
     from PySide6.QtWidgets import QApplication
 
     from logic._00_logic_launcher import ICON_SIZE
@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument(
         "--install-launcher",
         action="store_true",
-        help="instala el acceso de Molink en el menu del escritorio",
+        help="instala el acceso de Molink en el menu (Linux) o en el menu Inicio (Windows)",
     )
     args = parser.parse_args()
     setup_logging()

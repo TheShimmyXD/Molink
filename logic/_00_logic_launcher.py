@@ -1,7 +1,8 @@
 """Texto y rutas del lanzador de escritorio.
 
 Logica pura: arma el ``.desktop`` segun la especificacion de freedesktop
-(Cinnamon, GNOME, KDE...).
+(Cinnamon, GNOME, KDE...) y, en Windows, el guion de PowerShell que crea el
+acceso directo ``.lnk`` del menu Inicio.
 Las rutas absolutas se calculan al instalar; ninguna queda escrita en el
 proyecto.
 """
@@ -9,7 +10,7 @@ proyecto.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 # Igual que ``setDesktopFileName`` en ui/_00_ui_main.py: asi el escritorio
 # asocia la ventana abierta con este lanzador.
@@ -39,6 +40,43 @@ def launcher_paths(data_home: Path) -> LauncherPaths:
         / "apps"
         / f"{APP_ID}.png",
     )
+
+
+def windows_launcher_paths(appdata: PurePath, local_appdata: PurePath) -> LauncherPaths:
+    """Rutas en Windows: el ``.lnk`` en el menu Inicio del usuario y el ``.ico``
+    junto a los datos de Molink (``%LOCALAPPDATA%\\Molink``)."""
+    programs = appdata / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+    return LauncherPaths(
+        shortcut_file=programs / f"{APP_ID}.lnk",
+        icon_file=local_appdata / APP_ID / f"{APP_ID}.ico",
+    )
+
+
+def quote_powershell(value: str) -> str:
+    """Cadena literal de PowerShell: entre comillas simples, la comilla va doble."""
+    return "'" + value.replace("'", "''") + "'"
+
+
+def shortcut_script(
+    shortcut_file: PurePath, pythonw: PurePath, main_script: PurePath, icon_file: PurePath
+) -> str:
+    """Guion de PowerShell que crea (o reemplaza) el ``.lnk`` con ``WScript.Shell``.
+
+    Abre la app con ``pythonw.exe`` para que no salga una ventana de consola.
+    """
+    arguments = f'"{main_script}"'
+    lines = [
+        "$ErrorActionPreference = 'Stop'",
+        "$shell = New-Object -ComObject WScript.Shell",
+        f"$link = $shell.CreateShortcut({quote_powershell(str(shortcut_file))})",
+        f"$link.TargetPath = {quote_powershell(str(pythonw))}",
+        f"$link.Arguments = {quote_powershell(arguments)}",
+        f"$link.WorkingDirectory = {quote_powershell(str(main_script.parent))}",
+        f"$link.IconLocation = {quote_powershell(f'{icon_file},0')}",
+        f"$link.Description = {quote_powershell('Enlace entre dos equipos de la red local')}",
+        "$link.Save()",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def quote_exec_arg(arg: str) -> str:
