@@ -16,6 +16,7 @@ from services.service_identity import (
     check_device_name,
     default_data_dir,
     default_device_name,
+    ensure_private_dir,
     load_or_create_identity,
     save_device_name,
 )
@@ -148,3 +149,13 @@ def test_damaged_identity_json_is_rebuilt(home, monkeypatch):
     (data / IDENTITY_JSON_NAME).write_text("{no es json")
     assert load_or_create_identity(data).name == "equipo"
     assert json.loads((data / IDENTITY_JSON_NAME).read_text()) == {"name": "equipo"}
+
+
+def test_windows_data_dir_and_no_chmod(monkeypatch, tmp_path):
+    monkeypatch.setattr("services.service_identity.is_windows", lambda: True)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+    assert default_data_dir() == tmp_path / "local" / "Molink"
+    data = tmp_path / "datos"
+    data.mkdir(mode=0o755)
+    ensure_private_dir(data)
+    assert _mode(data) == 0o755

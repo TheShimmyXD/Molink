@@ -2,7 +2,8 @@
 
 Cada app anuncia _molink._tcp.local. con su IP de la red local y el puerto del
 servidor; la otra lo busca. Solo IPv4 y solo en la interfaz indicada: nunca en
-todas. El anuncio no lleva llaves ni codigos, solo nombre, IP, puerto y version.
+todas. El anuncio no lleva llaves ni codigos, solo nombre, IP, puerto, version y
+sistema (os=linux u os=windows; sin ella, Linux).
 
 Como programa de ensayo:
     .venv/bin/python services/service_discovery.py announce --host IP --name N
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import ipaddress
 import logging
 import signal
@@ -21,6 +23,7 @@ import sys
 import time
 from collections.abc import Iterable
 from dataclasses import dataclass
+from pathlib import Path
 
 from zeroconf import IPVersion, ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
@@ -40,6 +43,7 @@ class Peer:
     name: str
     address: str
     port: int
+    os: str = "linux"  # OS_LINUX de logic/_00_logic_platform.py
 
 
 def instance_name(service_name: str) -> str:
@@ -53,14 +57,18 @@ def peer_from_info(
     port: int | None,
     own_name: str,
     subnet: ipaddress.IPv4Network | None,
+    properties: dict | None = None,
 ) -> Peer | None:
     """Convierte un anuncio en Peer; None si es el propio equipo o esta fuera de la subred."""
+    # Dentro de la funcion: como programa de ensayo la raiz aun no esta en sys.path.
+    from logic._00_logic_platform import OS_KEY, peer_os
+
     name = instance_name(service_name)
     if name == own_name or not port:
         return None
     for address in addresses:
         if subnet is None or ipaddress.ip_address(address) in subnet:
-            return Peer(name, address, port)
+            return Peer(name, address, port, peer_os((properties or {}).get(OS_KEY.encode())))
     return None
 
 
@@ -74,13 +82,15 @@ class Announcer:
     """Anuncia este equipo hasta que se llama a close()."""
 
     def __init__(self, name: str, host: str, port: int):
+        from logic._00_logic_platform import OS_KEY, local_os
+
         self._host = _check_host(host)
         self._info = AsyncServiceInfo(
             SERVICE_TYPE,
             f"{name}.{SERVICE_TYPE}",
             addresses=[socket.inet_aton(host)],
             port=port,
-            properties={"v": PROTOCOL_VERSION},
+            properties={"v": PROTOCOL_VERSION, OS_KEY: local_os()},
             server=f"{name}.local.",
         )
         self._zeroconf: AsyncZeroconf | None = None
@@ -125,7 +135,9 @@ async def browse(
             info = AsyncServiceInfo(SERVICE_TYPE, name)
             if not await info.async_request(zeroconf.zeroconf, INFO_TIMEOUT_MS):
                 continue
-            peer = peer_from_info(name, info.parsed_addresses(), info.port, own_name, subnet)
+            peer = peer_from_info(
+                name, info.parsed_addresses(), info.port, own_name, subnet, info.properties
+            )
             if peer is not None:
                 peers.append(peer)
     finally:
@@ -143,7 +155,9 @@ async def _announce_until_stopped(args: argparse.Namespace) -> None:
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(signum, stop.set)
+        # Windows no tiene manejadores de senal en asyncio: alli Ctrl+C cancela la tarea.
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(signum, stop.set)
     try:
         await stop.wait()
     finally:
@@ -177,4 +191,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # Como script, la raiz del proyecto no esta en sys.path.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     sys.exit(main())

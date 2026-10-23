@@ -214,7 +214,9 @@ async def _serve_until_signal(identity: DeviceIdentity, args: argparse.Namespace
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for signum in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(signum, stop.set)
+        # Windows no tiene manejadores de senal en asyncio: alli Ctrl+C cancela la tarea.
+        with contextlib.suppress(NotImplementedError):
+            loop.add_signal_handler(signum, stop.set)
     pair_port = args.pair_port if args.pair else None
     await serve(identity, args.host, args.port, stop, _print, pair_port, args.network)
 

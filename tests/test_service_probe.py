@@ -11,6 +11,7 @@ from services.service_probe import (
     detect_clipboard,
     detect_session,
     format_report,
+    interfaces_from_adapters,
     network_of,
     parse_default_iface,
     parse_ip_addr,
@@ -116,3 +117,22 @@ def test_format_report_marks_default_route_and_missing_package():
     assert "falta xclip (paquete xclip)" in report
     assert "wlp2s0 192.0.2.10 (192.0.2.0/24) *" in report
     assert "| sshd del sistema (puerto 22) | no escucha |" in report
+
+
+def test_interfaces_from_ifaddr_adapters():
+    from types import SimpleNamespace as NS
+
+    adapters = [
+        NS(
+            nice_name="Wi-Fi",
+            ips=[
+                NS(ip="192.0.2.20", network_prefix=24),
+                NS(ip=("fe80::1", 0, 0), network_prefix=64),
+            ],
+        ),
+        NS(nice_name="Loopback", ips=[NS(ip="127.0.0.1", network_prefix=8)]),
+        NS(nice_name="Ethernet", ips=[NS(ip="169.254.3.4", network_prefix=16)]),
+    ]
+    assert interfaces_from_adapters(adapters) == [
+        NetInterface("Wi-Fi", "192.0.2.20", "192.0.2.0/24")
+    ]

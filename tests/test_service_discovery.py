@@ -72,3 +72,11 @@ def test_two_processes_find_each_other_and_close_cleanly():
     # Al cerrar la app el anuncio se retira: otra busqueda ya no lo ve.
     peers_after, _ = asyncio.run(browse(LOCALHOST, _unique_name("buscador"), 1.5))
     assert all(peer.name != name for peer in peers_after)
+
+
+def test_peer_os_comes_from_announcement():
+    name = f"otro.{SERVICE_TYPE}"
+    windows = peer_from_info(name, ["192.0.2.7"], 47820, "yo", SUBNET, {b"os": b"windows"})
+    old = peer_from_info(name, ["192.0.2.7"], 47820, "yo", SUBNET, {b"v": b"1"})
+    assert windows.os == "windows"
+    assert old.os == "linux"

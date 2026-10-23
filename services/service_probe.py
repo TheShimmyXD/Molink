@@ -6,7 +6,9 @@ usuario y puertos que ya escuchan (sshd del sistema, mDNS).
 
 Nada aqui modifica el sistema: no usa sudo, systemctl ni ufw; ufw se
 consulta leyendo /etc/ufw/ufw.conf. Solo usa la biblioteca estandar para
-poder copiarse y correrse en otro equipo sin instalar nada:
+poder copiarse y correrse en otro equipo sin instalar nada. En Windows no hay
+`ip`: las interfaces salen de ifaddr (viene con zeroconf) y la IP de la ruta
+por defecto de un socket UDP conectado, que no envia nada:
 
     python3 services/service_probe.py
 """
@@ -28,6 +30,8 @@ UFW_CONF = Path("/etc/ufw/ufw.conf")
 SSH_PORT = 22
 MDNS_PORT = 5353
 COMMAND_TIMEOUT_S = 5
+# Destino ficticio (TEST-NET-3) para saber por donde sale la ruta por defecto.
+ROUTE_PROBE = "203.0.113.1"
 
 # Herramienta de portapapeles por sesion y el paquete que la instala.
 CLIPBOARD_TOOLS = {
@@ -72,6 +76,20 @@ def parse_ip_addr(output: str) -> list[NetInterface]:
         name = parts[1]
         iface = ipaddress.ip_interface(parts[parts.index("inet") + 1])
         interfaces.append(NetInterface(name, str(iface.ip), str(iface.network)))
+    return interfaces
+
+
+def interfaces_from_adapters(adapters) -> list[NetInterface]:
+    """Interfaces IPv4 de ifaddr, sin loopback ni enlace local (169.254)."""
+    interfaces = []
+    for adapter in adapters:
+        for ip in adapter.ips:
+            if not isinstance(ip.ip, str):  # las IPv6 llegan como tupla
+                continue
+            iface = ipaddress.ip_interface(f"{ip.ip}/{ip.network_prefix}")
+            if iface.ip.is_loopback or iface.ip.is_link_local:
+                continue
+            interfaces.append(NetInterface(adapter.nice_name, str(iface.ip), str(iface.network)))
     return interfaces
 
 
@@ -173,13 +191,34 @@ def _ip_addr_output() -> str:
     return _run(["ip", "-4", "-o", "addr", "show", "scope", "global"])
 
 
+def _interfaces() -> list[NetInterface]:
+    if sys.platform == "win32":
+        import ifaddr
+
+        return interfaces_from_adapters(ifaddr.get_adapters())
+    return parse_ip_addr(_ip_addr_output())
+
+
+def _route_address() -> str:
+    """IP con que este equipo sale por la ruta por defecto; '' sin red."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        try:
+            sock.connect((ROUTE_PROBE, 9))
+        except OSError:
+            return ""
+        return sock.getsockname()[0]
+
+
 def local_network(host: str) -> str:
-    """Subred de la red local a la que pertenece la IP host, leida con `ip`."""
-    return network_of(host, parse_ip_addr(_ip_addr_output()))
+    """Subred de la red local a la que pertenece la IP host."""
+    return network_of(host, _interfaces())
 
 
 def default_host() -> str:
     """IP de este equipo en la red local (la de la ruta por defecto); '' sin red."""
+    if sys.platform == "win32":
+        address = _route_address()
+        return address if any(i.address == address for i in _interfaces()) else ""
     return default_address(
         parse_ip_addr(_ip_addr_output()),
         parse_default_iface(_run(["ip", "route", "show", "default"])),
@@ -200,7 +239,7 @@ def probe() -> ProbeResult:
         desktop=desktop,
         clipboard_tool=tool,
         clipboard_package=package,
-        interfaces=parse_ip_addr(_ip_addr_output()),
+        interfaces=_interfaces(),
         default_iface=parse_default_iface(_run(["ip", "route", "show", "default"])),
         ufw=parse_ufw_conf(_read_text(UFW_CONF)),
         sshd_listening=SSH_PORT in tcp_ports,

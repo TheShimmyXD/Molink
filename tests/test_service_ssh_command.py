@@ -209,3 +209,37 @@ def test_long_command_is_cancelled_without_orphans(instances):
     assert not _alive(background_pid)
     assert gone_after < GONE_TIMEOUT_S
     assert status == 0
+
+
+def test_windows_runs_powershell_and_kills_the_tree(monkeypatch):
+    import base64
+
+    import logic._00_logic_platform as platform_logic
+    from services import service_ssh_server
+
+    calls = []
+
+    class FakeChild:
+        pid = 4321
+
+        async def wait(self):
+            return 1
+
+    async def fake_exec(*args, **kwargs):
+        calls.append((args, kwargs))
+        return FakeChild()
+
+    monkeypatch.setattr(platform_logic, "is_windows", lambda: True)
+    monkeypatch.setattr(service_ssh_server.asyncio, "create_subprocess_exec", fake_exec)
+
+    async def scenario():
+        child = await service_ssh_server._spawn("hostname")
+        await service_ssh_server._terminate(child)
+
+    asyncio.run(scenario())
+    (spawn_args, spawn_kwargs), (kill_args, _) = calls
+    assert spawn_args[0] == "powershell.exe"
+    assert base64.b64decode(spawn_args[-1]).decode("utf-16-le").endswith("\nhostname")
+    assert spawn_kwargs["creationflags"] == platform_logic.WINDOWS_FLAGS
+    assert "start_new_session" not in spawn_kwargs
+    assert kill_args == ("taskkill.exe", "/T", "/F", "/PID", "4321")

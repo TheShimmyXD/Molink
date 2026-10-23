@@ -1,7 +1,8 @@
 """Identidad del equipo: carpeta de datos, llaves ed25519 y nombre.
 
 Todo vive en ~/.local/share/molink/ (o $XDG_DATA_HOME/molink): carpeta 700 y
-archivos 600 desde que se crean. Nada se escribe en ~/.ssh: la carpeta
+archivos 600 desde que se crean. En Windows vive en %LOCALAPPDATA%\\Molink, que
+ya es solo del usuario por sus permisos (ACL): ahi no se cambian modos. Nada se escribe en ~/.ssh: la carpeta
 se rechaza si cae dentro de ella.
 
 - user_key: con ella este equipo entra al servidor del otro.
@@ -22,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import asyncssh
+
+from logic._00_logic_platform import is_windows
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,10 @@ class DeviceIdentity:
 
 def default_data_dir() -> Path:
     """Carpeta de datos de Molink segun XDG; por defecto ~/.local/share/molink."""
+    if is_windows():
+        base = os.environ.get("LOCALAPPDATA", "")
+        root = Path(base) if base else Path.home() / "AppData" / "Local"
+        return root / "Molink"
     base = os.environ.get("XDG_DATA_HOME", "")
     root = Path(base) if base and Path(base).is_absolute() else Path.home() / ".local" / "share"
     return root / "molink"
@@ -68,6 +75,8 @@ def ensure_private_dir(path: Path) -> Path:
 
 
 def _tighten(path: Path, mode: int) -> None:
+    if is_windows():
+        return
     if path.stat().st_mode & 0o777 != mode:
         path.chmod(mode)
         logger.warning("Permisos corregidos a %o en %s", mode, path.name)

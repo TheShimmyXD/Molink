@@ -8,6 +8,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ### Agregado
 - Sello de Molink al inicio del README, en versión para tema claro y oscuro.
+- Primer paso hacia Windows 11: datos en `%LOCALAPPDATA%\Molink`, interfaces de red con
+  ifaddr, el servidor corre los comandos en PowerShell y termina su árbol de procesos, y el
+  anuncio dice el sistema de cada equipo (`os`). Aún sin probar en Windows.
 
 ## [0.1.0] - 2026-10-18
 
