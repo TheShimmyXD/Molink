@@ -67,6 +67,19 @@ def powershell_file_args(path: str) -> list[str]:
     ]
 
 
+def sftp_local_path(path: str, platform: str = sys.platform) -> str:
+    """Ruta local de una ruta del servidor SFTP.
+
+    Con chroot en Windows, asyncssh da rutas como /C:/Users/x/a.part y las
+    convierte antes de abrir; os.path y os.replace necesitan C:\\Users\\x\\a.part.
+    """
+    if not is_windows(platform):
+        return path
+    if path[:1] == "/" and path[2:3] == ":":
+        path = path[1:]
+    return path.replace("/", "\\")
+
+
 def taskkill_args(pid: int) -> list[str]:
     """Orden que termina el proceso pid y todos sus hijos."""
     return ["taskkill.exe", "/T", "/F", "/PID", str(pid)]

@@ -10,6 +10,7 @@ from logic._00_logic_platform import (
     peer_os,
     powershell_file_args,
     powershell_script,
+    sftp_local_path,
     taskkill_args,
 )
 
@@ -47,3 +48,10 @@ def test_powershell_file_args():
 
 def test_taskkill_args_kill_the_tree():
     assert taskkill_args(1234) == ["taskkill.exe", "/T", "/F", "/PID", "1234"]
+
+
+def test_sftp_local_path_turns_server_paths_into_windows_paths():
+    path = "/C:/Users/ana/Descargas/Molink/a b.txt.part"
+    assert sftp_local_path(path, "win32") == "C:\\Users\\ana\\Descargas\\Molink\\a b.txt.part"
+    assert sftp_local_path(path, "linux") == path
+    assert sftp_local_path("/home/ana/a.txt", "linux") == "/home/ana/a.txt"

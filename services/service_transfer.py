@@ -35,6 +35,7 @@ from pathlib import Path, PurePosixPath
 
 import asyncssh
 
+from logic._00_logic_platform import sftp_local_path
 from services.service_ssh_server import PEER_KEY_INFO
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,7 @@ class InboxSFTPServer(asyncssh.SFTPServer):
         self._incoming: dict[bytes, _Incoming] = {}  # por ruta del .part
 
     def _local(self, path: bytes) -> str:
-        return os.fsdecode(self.map_path(path))
+        return sftp_local_path(os.fsdecode(self.map_path(path)))
 
     def _emit(self, item: _Incoming, kind: IncomingKind, name: str | None = None) -> None:
         item.last_emit = time.monotonic()
